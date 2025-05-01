@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fundraising Thermometer Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <style>
+        /* Custom styles */
+        /* Base font size assumed to be 16px for rem calculations */
+        :root {
+            font-size: 16px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        input[type="color"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 2.5rem; /* 40px */
+            height: 2.5rem; /* 40px */
+            padding: 0;
+            border: none;
+            border-radius: 0.5rem; /* 8px */
+            cursor: pointer;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+            border-radius: 0.5rem; /* 8px */
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: 1px solid #ccc;
+            border-radius: 0.5rem; /* 8px */
+        }
+        input[type="color"]::-moz-color-swatch {
+            border: 1px solid #ccc;
+            border-radius: 0.5rem; /* 8px */
+        }
+
+        /* Styles using REM units for better scalability */
+        .donation-meter-container {
+             display: flex;
+             justify-content: center;
+             padding-top: 0.625rem; /* 10px */
+             padding-bottom: 1.25rem; /* 20px */
+             /* Adjusted padding based on new rem widths */
+             padding-left: 6rem; /* 96px approx */
+             padding-right: 6rem; /* 96px approx */
+        }
+
+        .donation-meter {
+            text-align: center;
+            position: relative;
+            width: 9.375rem; /* 150px */
+        }
+
+        .donation-meter strong {
+            display: block;
+            text-align: center;
+            color: #374151;
+            margin-bottom: 0.25rem; /* 4px */
+        }
+
+        .donation-meter .goal-amount-text {
+            font-size: 1.125rem; /* Tailwind text-lg */
+            font-weight: 600;
+            color: #4B5563;
+        }
+
+        .donation-meter .glass {
+            background: #e5e5e5;
+            border-radius: 6.25rem 6.25rem 0 0; /* 100px */
+            display: block;
+            height: 18.75rem; /* 300px */
+            margin: 0 auto 0.625rem auto; /* 10px */
+            padding: 0.3125rem; /* 5px */
+            position: relative; /* Crucial for positioning ticks */
+            width: 4.375rem; /* 70px */
+            box-sizing: border-box;
+            /* overflow: hidden; */ /* Removed overflow:hidden */
+        }
+
+        .donation-meter .amount {
+            background: #f34e54;
+            border-radius: 6.25rem 6.25rem 0 0; /* 100px */
+            display: block;
+            width: 3.75rem; /* 60px */
+            position: absolute;
+            bottom: 0.3125rem; /* 5px */
+            left: 0.3125rem; /* 5px */
+            height: 0%;
+            transition: height 0.5s ease-out, background-color 0.3s ease;
+            z-index: 1; /* Ensure fill is behind ticks */
+        }
+
+         /* --- Bulb Styles --- */
+        .donation-meter .bulb {
+            background: #e5e5e5;
+            border-radius: 6.25rem; /* 100px */
+            display: block;
+            height: 6.25rem; /* 100px */
+            width: 6.25rem; /* 100px */
+            padding: 0.3125rem; /* 5px */
+            position: relative;
+            top: -2.1875rem; /* -35px */
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
+
+        .donation-meter .bulb .red-circle {
+            background: #f34e54;
+            border-radius: 6.25rem; /* 100px */
+            display: block;
+            height: 5.625rem; /* 90px */
+            width: 5.625rem; /* 90px */
+            transition: background-color 0.3s ease;
+        }
+
+        .donation-meter .bulb .filler {
+            background: #f34e54;
+            display: block;
+            height: 1.875rem; /* 30px */
+            width: 3.75rem; /* 60px */
+            position: absolute;
+            top: -0.3125rem; /* -5px */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+            transition: background-color 0.3s ease;
+        }
+
+        /* --- Amount Label Styles --- */
+        /* Positioned relative to .donation-meter */
+        .amount-label {
+            position: absolute;
+            /* Adjust left based on .donation-meter width and desired gap */
+            /* .donation-meter width is 9.375rem. Center is ~4.68rem */
+            /* Glass width is 4.375rem. Half is ~2.18rem */
+            /* Position right edge of glass + gap */
+            left: calc(50% + 2.1875rem + 0.75rem); /* Center + Half Glass Width + Gap */
+            bottom: 0.3125rem; /* 5px - Initial value, JS will override */
+            background-color: #4B5563;
+            color: white;
+            padding: 0.3125rem 0.625rem; /* 5px 10px */
+            border-radius: 0.25rem; /* 4px */
+            font-size: 0.8rem;
+            font-weight: 600;
+            white-space: nowrap;
+            transform: translateY(50%);
+            transition: bottom 0.5s ease-out, opacity 0.3s ease;
+            opacity: 0;
+            z-index: 10;
+            line-height: 1.3;
+            text-align: center;
+            pointer-events: none; /* Prevent label from interfering with interactions */
+        }
+
+        .amount-label::before { /* The triangle arrow */
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: 100%;
+            margin-top: -0.4375rem; /* -7px */
+            border-width: 0.4375rem; /* 7px */
+            border-style: solid;
+            border-color: transparent #4B5563 transparent transparent;
+        }
+
+        .amount-label.visible {
+            opacity: 1;
+        }
+
+        /* --- Tick Mark Styles (Inside) --- */
+        .tick-mark {
+            position: absolute;
+            background-color: #6B7280; /* Tailwind gray-500 */
+            height: 0.125rem; /* 2px */
+            width: 0.625rem; /* 10px */
+            left: 0.3125rem; /* Position relative to left padding */
+            transform: translateY(50%); /* Center vertically */
+            z-index: 2; /* Above fill, below label */
+        }
+
+    </style>
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="bg-white p-6 sm:p-8 rounded-xl shadow-lg w-full max-w-lg">
+        <h2 class="text-2xl sm:text-3xl font-bold text-center text-gray-800 mb-6">Fundraising Thermometer</h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div>
+                <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input type="text" id="title" placeholder="e.g., Library Fund" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div>
+                <label for="goal" class="block text-sm font-medium text-gray-700 mb-1">Goal Amount ($)</label>
+                <input type="number" id="goal" placeholder="e.g., 10000" min="1" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div>
+                <label for="raised" class="block text-sm font-medium text-gray-700 mb-1">Amount Raised ($)</label>
+                <input type="number" id="raised" placeholder="e.g., 3500" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div class="flex flex-col items-start">
+                <label for="fillColor" class="block text-sm font-medium text-gray-700 mb-1">Fill Color</label>
+                <input type="color" id="fillColor" value="#EF4444" class="shadow-sm">
+             </div>
+             </div>
+
+        <div class="thermometer-container text-center p-4 rounded-lg bg-gray-50 border border-gray-200" id="capture">
+            <h3 id="displayTitle" class="text-xl font-semibold text-gray-700 mb-4">Fundraising Progress</h3>
+
+            <div class="donation-meter-container">
+                 <div class="donation-meter">
+                    <strong class="goal-amount-text" id="displayGoalAmount">$0 Goal</strong>
+                    <span class="glass">
+                        <span class="amount" id="thermoFillAmount" style="height: 0%"></span>
+
+                        <span class="tick-mark" style="bottom: 10%;"></span>
+                        <span class="tick-mark" style="bottom: 20%;"></span>
+                        <span class="tick-mark" style="bottom: 30%;"></span>
+                        <span class="tick-mark" style="bottom: 40%;"></span>
+                        <span class="tick-mark" style="bottom: 50%;"></span>
+                        <span class="tick-mark" style="bottom: 60%;"></span>
+                        <span class="tick-mark" style="bottom: 70%;"></span>
+                        <span class="tick-mark" style="bottom: 80%;"></span>
+                        <span class="tick-mark" style="bottom: 90%;"></span>
+
+                    </span>
+                     <div class="amount-label" id="amountLabel">
+                        $0<br>Raised
+                    </div>
+                    <div class="bulb">
+                        <span class="red-circle" id="bulbFillCircle"></span>
+                        <span class="filler" id="bulbFiller"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="motivational-text text-lg font-medium text-gray-600 mt-2" id="motivation">Enter values to see progress.</div>
+            </div>
+
+        <div class="mt-6 text-center">
+            <button onclick="downloadThermometer()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out">
+                Download PNG
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Get references to DOM elements
+        const goalInput = document.getElementById('goal');
+        const raisedInput = document.getElementById('raised');
+        const fillColorInput = document.getElementById('fillColor');
+        const titleInput = document.getElementById('title');
+        const displayTitle = document.getElementById('displayTitle');
+        const motivationText = document.getElementById('motivation');
+
+        // CSS Thermometer specific elements
+        const displayGoalAmount = document.getElementById('displayGoalAmount');
+        const thermoFillAmount = document.getElementById('thermoFillAmount');
+        const bulbFillCircle = document.getElementById('bulbFillCircle');
+        const bulbFiller = document.getElementById('bulbFiller');
+        const glassElement = document.querySelector('.donation-meter .glass');
+        const amountLabel = document.getElementById('amountLabel');
+        const donationMeterElement = document.querySelector('.donation-meter'); // Get parent for label positioning
+
+        // --- Define constants based on REM values ---
+        const GLASS_HEIGHT_REM = 18.75; // 300px / 16px
+        const GLASS_PADDING_REM = 0.3125; // 5px / 16px
+        const GLASS_INNER_HEIGHT_REM = GLASS_HEIGHT_REM - (2 * GLASS_PADDING_REM); // Approx 18.125rem
+        const BULB_HEIGHT_REM = 6.25; // 100px / 16px
+        const BULB_OFFSET_REM = 2.1875; // 35px / 16px (top offset)
+        const MIN_BOTTOM_OFFSET_REM = BULB_HEIGHT_REM - BULB_OFFSET_REM + GLASS_PADDING_REM; // Minimum bottom relative to donation-meter bottom edge
+
+        // Function to update the thermometer visualization
+        function renderThermometer() {
+            // Get values, providing defaults and ensuring numbers
+            const goal = parseFloat(goalInput.value) || 0;
+            const raised = parseFloat(raisedInput.value) || 0;
+            const fillColor = fillColorInput.value;
+            const title = titleInput.value.trim() || 'Fundraising Progress';
+
+            // Update title
+            displayTitle.innerText = title;
+            // Update goal amount text above thermometer
+             if (displayGoalAmount) {
+                 displayGoalAmount.innerText = `$${goal.toLocaleString()} Goal`;
+             }
+
+            let percent = 0;
+
+            // Validate goal and calculate percentage
+            if (goal <= 0) {
+                motivationText.innerText = 'Please set a valid goal amount.';
+                percent = 0;
+            } else {
+                percent = Math.min(Math.max((raised / goal) * 100, 0), 100);
+
+                // Update motivational message
+                const remaining = Math.max(goal - raised, 0);
+                const goalReached = raised >= goal;
+                 motivationText.innerText = goalReached
+                    ? `Goal Reached! Raised $${raised.toLocaleString()}! Thank you!`
+                    : `Only $${remaining.toLocaleString()} to go!`;
+            }
+
+            // --- Update CSS Thermometer ---
+            const percentString = percent + '%';
+
+            if (thermoFillAmount) {
+                 thermoFillAmount.style.height = percentString;
+                 thermoFillAmount.style.backgroundColor = fillColor;
+            }
+            if (bulbFillCircle) {
+                 bulbFillCircle.style.backgroundColor = fillColor;
+            }
+             if (bulbFiller) {
+                 bulbFiller.style.backgroundColor = fillColor;
+                 bulbFiller.style.display = percent > 0 ? 'block' : 'none';
+            }
+
+            // Update the position and text of the amount label
+            if (amountLabel && glassElement && donationMeterElement) {
+                // Label is now always "visible" conceptually, but hide if $0 raised
+                if (raised > 0) {
+                    amountLabel.innerHTML = `$${raised.toLocaleString()}<br>Raised`;
+
+                    // Calculate bottom position relative to the donation-meter element
+                    // 1. Calculate the fill top position relative to the glass bottom (in rem)
+                    const fillTopRelativeGlassBottomRem = (percent / 100 * GLASS_INNER_HEIGHT_REM) + GLASS_PADDING_REM;
+
+                    // 2. Calculate the glass bottom position relative to the donation-meter bottom (in rem)
+                    //    This is tricky without JS height calculation, approximate using bulb offset
+                    const glassBottomRelativeMeterBottomRem = BULB_HEIGHT_REM - BULB_OFFSET_REM; // Approx bottom edge of glass
+
+                    // 3. Calculate label bottom relative to donation-meter bottom
+                    const labelBottomRem = glassBottomRelativeMeterBottomRem + fillTopRelativeGlassBottomRem;
+
+                    // Set bottom position in REM units, ensuring minimum position
+                    amountLabel.style.bottom = Math.max(MIN_BOTTOM_OFFSET_REM, labelBottomRem) + 'rem';
+                    amountLabel.classList.add('visible'); // Use class to control opacity/fade-in
+                } else {
+                    amountLabel.classList.remove('visible'); // Hide label if $0 raised
+                }
+            }
+        }
+
+
+        // Function to handle PNG download
+        function downloadThermometer() {
+            const elementToCapture = document.getElementById('capture');
+
+            html2canvas(elementToCapture, {
+                 backgroundColor: '#ffffff',
+                 scale: 2,
+                 logging: false,
+                 useCORS: true,
+                 scrollX: -window.scrollX,
+                 scrollY: -window.scrollY,
+                 windowWidth: document.documentElement.offsetWidth,
+                 windowHeight: document.documentElement.offsetHeight
+                 }).then(canvas => {
+                const link = document.createElement('a');
+                const title = titleInput.value.trim() || 'fundraising-thermometer';
+                const filename = title.toLowerCase()
+                                    .replace(/\s+/g, '-')
+                                    .replace(/[^\w-]+/g, '')
+                                    .replace(/--+/g, '-')
+                                    .replace(/^-+/, '')
+                                    .replace(/-+$/, '')
+                                    + '.png';
+                link.download = filename || 'thermometer.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+
+            }).catch(err => {
+                console.error("Error generating canvas: ", err);
+                const downloadButton = document.querySelector('button[onclick="downloadThermometer()"]');
+                if (downloadButton) {
+                    const originalText = downloadButton.innerText;
+                    downloadButton.innerText = 'Error downloading!';
+                    downloadButton.classList.add('bg-red-500', 'hover:bg-red-600');
+                    downloadButton.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                    setTimeout(() => {
+                        if (downloadButton) {
+                            downloadButton.innerText = originalText;
+                            downloadButton.classList.remove('bg-red-500', 'hover:bg-red-600');
+                            downloadButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                        }
+                    }, 3000);
+                }
+            });
+        }
+
+        // Add event listeners for automatic updates
+        goalInput.addEventListener('input', renderThermometer);
+        raisedInput.addEventListener('input', renderThermometer);
+        fillColorInput.addEventListener('input', renderThermometer);
+        titleInput.addEventListener('input', renderThermometer);
+
+        // Initial render on page load
+         window.onload = renderThermometer;
+
+    </script>
+</body>
+</html>
